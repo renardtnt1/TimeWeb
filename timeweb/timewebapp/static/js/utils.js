@@ -27,11 +27,8 @@ utils = {
                 b: parseInt(result[3], 16),
             }
         },
-        // https://stackoverflow.com/questions/201724/easy-way-to-turn-javascript-array-into-comma-separated-list
         arrayToEnglish: function(array) {
-            return array
-                .join(", ")
-                .replace(/, ((?:.(?!, ))+)$/, `${array.length >= 3 ? "," : ""} and $1`);
+            return `<ol><li>${array.join("</li><li>")}</li></ol>`;
         }
     },
     ui: {
@@ -48,26 +45,29 @@ utils = {
             }
         },
         setClickHandlers: {
+            markAsDoneButtons: function() {
+                $(".mark-as-done-button").parent().click(function() {
+                    const sa = utils.loadAssignmentData($(this));
+                    sa.mark_as_done = !sa.mark_as_done;
+                    ajaxUtils.sendAttributeAjaxWithTimeout('mark_as_done', sa.mark_as_done, sa.id);
+                    if (sa.mark_as_done)
+                        $(this).children("img").attr("src", "static/images/show.png");
+                    else
+                        $(this).children("img").attr("src", "static/images/hide.png");
+                    priority.sort();
+                });
+            },
+
             toggleEstimatedCompletionTime: function() {
                 // Hide and show estimated completion time
                 $("#hide-button").click(function() {
                     if ($(this).html() === "Hide") {
                         $(this).html("Show");
-                        $("#estimated-total-time, #current-time, #tomorrow-time").css({
-                            height: 0,
-                            width: 0,
-                            overflow: "hidden",
-                            position: "absolute",
-                        });
+                        $("#estimated-total-time, #current-time, #tomorrow-time").addClass("hide-info");
                         localStorage.setItem("hide-button", true);
                     } else {
                         $(this).html("Hide");
-                        $("#estimated-total-time, #current-time, #tomorrow-time").css({
-                            height: "",
-                            width: "",
-                            overflow: "",
-                            position: "",
-                        });
+                        $("#estimated-total-time, #current-time, #tomorrow-time").removeClass("hide-info");
                         localStorage.removeItem("hide-button");
                     }
                 });
@@ -117,9 +117,10 @@ utils = {
                     utils.in_next_day = true;
                     ajaxUtils.disable_ajax = true;
                     date_now.setDate(date_now.getDate() + 1);
-                    for (let sa of dat) {
-                        sa.mark_as_done = false;
-                    }
+                    // mark as done is unmarked in the next day
+                    $(".assignment.mark-as-done").each(function() {
+                        $(this).find(".mark-as-done-button").click();
+                    });
                     // Hide current time without using display none, as that can be affected by .toggle
                     $("#current-time").css({
                         position: "absolute",
@@ -319,6 +320,7 @@ utils = {
                     });
                 });
             },
+
             expandShortcutHitboxes: function() {
                 // Expand shortcut hitbox by also simulating clicking on after and before pseudo-elements
                 $(".assignment-container").click(function(e) {
@@ -634,7 +636,7 @@ utils = {
                                                 assignment_container.find(".delete-button").focus().click();
                                                 break;
                                             case "i":
-                                                assignment_container.find(".mark-as-finished-button").focus().click();
+                                                assignment_container.find(".mark-as-done-button").focus().click();
                                                 break;
                                             case "Backspace":
                                                 assignment_container.find(".delete-work-input-button").focus().click();
@@ -929,42 +931,46 @@ isExampleAccount = username === example_account_name || editing_example_account;
 ajaxUtils = {
     disable_ajax: isExampleAccount && !editing_example_account, // Even though there is a server side validation for disabling ajax on the example account, initally disable it locally to ensure things don't also get changed locally
     error: function(response, exception) {
+        let title;
+        let content;
         if (response.status == 0) {
-            $.alert({
-                title: "Failed to connect.", 
-                content: "We can't establish a connection with the server. Check your connection and try again.",
-                backgroundDismiss: false,
-            });
+            title = "Failed to connect.";
+            content = "We can't establish a connection with the server. Check your connection and try again.";
         } else if (response.status == 404) {
-            $.alert({
-                title: "Not found.",
-                content: "Refresh or try again.",
-                backgroundDismiss: false,
-            });
+            title = "Not found.";
+            content = "Refresh or try again.";
         } else if (response.status == 500) {
-            $.alert({
-                title: "Internal server error.",
-                content: "Please <a target='_blank' href='mailto:arhan.ch@gmail.com'>contact me</a> if you see this, and try to provide context on how the issue happened.",
-                backgroundDismiss: false,
-            });
+            title = "Internal server error.";
+            content = "Please <a target='_blank' href='mailto:arhan.ch@gmail.com'>contact me</a> if you see this, and try to provide context on how the issue happened.";
         } else if (exception === 'timeout' || response.status == 502) {
-            $.alert({
-                title: "Request timed out.",
-                content: "You're probably seeing this because something took too long while connecting with the server. Try refreshing or try again.",
-                backgroundDismiss: false,
-            });
+            title = "Request timed out.";
+            content = "You're probably seeing this because something took too long while connecting with the server. Try refreshing or try again.";
         } else if (exception === 'abort') {
-            $.alert({
-                title: "Request aborted.",
-                content: "Try refreshing or try again.",
-                backgroundDismiss: false,
-            });
+            title = "Request aborted.";
+            content = "Try refreshing or try again.";
         } else {
-            $.alert({
-                title: "<p>Uncaught error while trying to connect with the server:</p>" + response.responseText,
-                backgroundDismiss: false,
-            });
+            title = "<p>Uncaught error while trying to connect with the server:</p>" + response.responseText;
         }
+        $.alert({
+            title: title,
+            content: content,
+            backgroundDismiss: false,
+            buttons: {
+                ok: {
+
+                },
+                reload: {
+                    action: function() {
+                        window.location.reload();
+                    },
+                },
+                "try again": {
+                    action: () => {
+                        $.ajax(this);
+                    },
+                },
+            },
+        });
     },
     ajaxFinishedTutorial: function() {
         if (ajaxUtils.disable_ajax) return;
@@ -1037,10 +1043,10 @@ ajaxUtils = {
         setTimeout(function() {
             if (ajaxUtils.notice_assignments.size) {
                 ajaxUtils.notice_assignments = [...ajaxUtils.notice_assignments];
-                ajaxUtils.notice_assignments = ajaxUtils.notice_assignments.map(sa => `"${utils.loadAssignmentData(sa, true).name}"`);
+                ajaxUtils.notice_assignments = ajaxUtils.notice_assignments.map(sa => utils.loadAssignmentData(sa, true).name);
                 $.alert({
                     title: ajaxUtils.notice_assignments.length === 1 
-                    ? `Notice: the assignment ${utils.formatting.arrayToEnglish(ajaxUtils.notice_assignments)} has had its due date incremented because it has soft due dates enabled.`
+                    ? `Notice: the assignment "${ajaxUtils.notice_assignments[0]}" has had its due date incremented because it has soft due dates enabled.`
                     : `Notice: the assignments ${utils.formatting.arrayToEnglish(ajaxUtils.notice_assignments)} have had their due dates incremented because they have soft due dates enabled.`,
                     content: "This only occurs when an assignment's due date passes, but the assignment still isn't complete. If you don't want this to happen, disable soft due dates in the edit assignment form.",
                     backgroundDismiss: false,
@@ -1232,6 +1238,7 @@ document.addEventListener("DOMContentLoaded", function() {
     },
     utils.reloadAtMidnight();
     if (SETTINGS.oauth_token.token) ajaxUtils.createGCAssignments();
+    utils.ui.setClickHandlers.markAsDoneButtons();
     utils.ui.setClickHandlers.toggleEstimatedCompletionTime();
     utils.ui.setClickHandlers.advancedInputs();
     utils.ui.setClickHandlers.headerIcons();

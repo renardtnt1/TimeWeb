@@ -464,7 +464,7 @@ class VisualAssignment extends Assignment {
         screen.textBaseline = "top";
         screen.font = '13.75px Open Sans';
         screen.fillText(this.sa.fixed_mode ? "Fixed Mode" : "Dynamic Mode", this.width-2, this.height-155+move_info_down);
-        screen.fillText(`Skew Ratio: ${rounded_skew_ratio || "Linear"}`, this.width-2, this.height-138+move_info_down);
+        screen.fillText(`Curvature: ${rounded_skew_ratio || "Linear"}`, this.width-2, this.height-138+move_info_down);
 
         const daysleft = Math.floor(this.sa.complete_x) - today_minus_assignment_date;
         let strdaysleft;
@@ -495,10 +495,7 @@ class VisualAssignment extends Assignment {
         } else {
             center(`Due Date: ${this.complete_due_date.toLocaleDateString("en-US", this.date_string_options)}${strdaysleft}`, 1);
         }
-        if (!this.dom_assignment.hasClass("completely-finished")) {
-            if (goal_for_this_day < last_work_input || this.sa.break_days.includes((this.assign_day_of_week + this.sa.blue_line_start + len_works) % 7)) {
-                goal_for_this_day = last_work_input;
-            }
+        if (!this.dom_assignment.parents(".assignment-container").hasClass("finished")) {
             let displayed_day;
             let str_day;
             if (this.sa.blue_line_start + len_works === this.sa.x && this.sa.due_time && (this.sa.due_time.hour || this.sa.due_time.minute)) {
@@ -522,8 +519,16 @@ class VisualAssignment extends Assignment {
                     break;
             }
             str_day += ':';
-            center(str_day, 3);
-            center(`Goal for ${displayed_day.valueOf() === date_now.valueOf() ? "Today" : "this Day"}: ${goal_for_this_day}/${this.sa.y} ${pluralize(this.sa.unit)}`, 4);
+
+            let todo = this.funct(len_works + this.sa.blue_line_start + 1) - last_work_input;
+            if (todo < 0 || this.sa.break_days.includes((this.assign_day_of_week + this.sa.blue_line_start + len_works) % 7)) {
+                todo = 0;
+            }
+
+            if (displayed_day.valueOf() !== date_now.valueOf()) {
+                center(str_day, 3);
+                center(`${pluralize(this.sa.unit, 2)} to Complete for this Day: ${todo}`, 4);
+            }
         }
         screen.scale(1 / this.scale, 1 / this.scale);
     }
@@ -694,7 +699,6 @@ class VisualAssignment extends Assignment {
                 work_input_textbox = this.dom_assignment.find(".work-input-textbox"),
                 skew_ratio_textbox = this.dom_assignment.find(".skew-ratio-textbox"),
                 submit_work_button = this.dom_assignment.find(".submit-work-button"),
-                ignore_assignment_button = this.dom_assignment.find(".mark-as-finished-button"),
                 fixed_mode_button = this.dom_assignment.find(".fixed-mode-button"),
                 delete_work_input_button = this.dom_assignment.find(".delete-work-input-button");
         this.graph.off("mousemove").mousemove(this.mousemove.bind(this)); // Turn off mousemove to ensure there is only one mousemove handler at a time
@@ -860,30 +864,12 @@ class VisualAssignment extends Assignment {
         });
         // END Submit work button
 
-        // BEGIN ignore button
-        let not_applicable_timeout_ignore_assignment_button;
-        ignore_assignment_button.click(() => {
-            if (this.dom_assignment.parents(".assignment-container").hasClass("question-mark")) {
-                ignore_assignment_button.html("Not Applicable");
-                clearTimeout(not_applicable_timeout_ignore_assignment_button);
-                not_applicable_timeout_ignore_assignment_button = setTimeout(function() {
-                    ignore_assignment_button.html("Ignore for Today Only");
-                }, VisualAssignment.BUTTON_ERROR_DISPLAY_TIME);
-                return;
-            }
-            this.sa.mark_as_done = !this.sa.mark_as_done;
-            ignore_assignment_button.onlyText(this.sa.mark_as_done ? "Unignore for Today Only" : "Ignore for Today Only");
-            ajaxUtils.sendAttributeAjaxWithTimeout('mark_as_done', this.sa.mark_as_done, this.sa.id);
-            priority.sort();
-        }).html(this.sa.mark_as_done ? "Unignore for Today Only" : "Ignore for Today Only");
-        // END ignore button
-
         // BEGIN Set skew ratio using graph button
         let original_skew_ratio;
         let not_applicable_timeout_skew_ratio_button;
         skew_ratio_button.click(() => {
             if (original_skew_ratio) {
-                skew_ratio_button.onlyText("Set Skew Ratio using Graph");
+                skew_ratio_button.onlyText("Set Curvature of the Graph");
                 this.set_skew_ratio_using_graph = false;
                 this.sa.skew_ratio = original_skew_ratio;
                 original_skew_ratio = undefined;
@@ -896,12 +882,12 @@ class VisualAssignment extends Assignment {
                 skew_ratio_button.onlyText("Not Applicable");
                 clearTimeout(not_applicable_timeout_skew_ratio_button);
                 not_applicable_timeout_skew_ratio_button = setTimeout(function() {
-                    skew_ratio_button.onlyText("Set Skew Ratio using Graph");
+                    skew_ratio_button.onlyText("Set Curvature of the Graph");
                 }, VisualAssignment.BUTTON_ERROR_DISPLAY_TIME);
                 return;
             }
             original_skew_ratio = this.sa.skew_ratio;
-            skew_ratio_button.onlyText("Click again to cancel");
+            skew_ratio_button.onlyText("Hover the graph. Click again to cancel");
             // Turn off mousemove to ensure there is only one mousemove handler at a time
             this.graph.off("mousemove").mousemove(this.mousemove.bind(this));
             this.set_skew_ratio_using_graph = true;
@@ -911,7 +897,7 @@ class VisualAssignment extends Assignment {
                 // Runs if (set_skew_ratio_using_graph && draw_mouse_point || set_skew_ratio_using_graph && !draw_mouse_point)
                 original_skew_ratio = undefined;
                 this.set_skew_ratio_using_graph = false;
-                skew_ratio_button.onlyText("Set Skew Ratio using Graph");
+                skew_ratio_button.onlyText("Set Curvature of the Graph");
                 ajaxUtils.sendAttributeAjaxWithTimeout('skew_ratio', this.sa.skew_ratio, this.sa.id);
                 if (!this.draw_mouse_point) {
                     this.graph.off("mousemove");
@@ -952,7 +938,7 @@ class VisualAssignment extends Assignment {
                 skew_ratio_textbox.val('').attr("placeholder", "Not Applicable");
                 clearTimeout(not_applicable_timeout_skew_ratio_textbox);
                 not_applicable_timeout_skew_ratio_textbox = setTimeout(function() {
-                    skew_ratio_textbox.attr("placeholder", "Enter Skew Ratio");
+                    skew_ratio_textbox.attr("placeholder", "Enter Curvature");
                 }, VisualAssignment.BUTTON_ERROR_DISPLAY_TIME);
                 return;
             }

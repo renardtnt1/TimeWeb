@@ -77,6 +77,12 @@ header.animate::after {
 #tomorrow-time {
     white-space: nowrap;
 }
+.hide-info {
+    height: 0;
+    width: 0;
+    overflow: hidden;
+    position: absolute;
+}
 #assignments-header img:not(:first-of-type), #assignments-header a img {
     position: relative;
     z-index: 1;
@@ -797,13 +803,14 @@ a[href="settings"] {
 }
 /* 2nd row */
 .skew-ratio-button, .skew-ratio-textbox, .fixed-mode-button {
-    margin: 7px 0;
+    margin-top: 9px;
+    margin-bottom: 7px;
 }
 .work-input-textbox {
     width: 111px;
 }
 .skew-ratio-textbox {
-    width: 129px;
+    width: 123px;
 }
 .skew-ratio-textbox::-webkit-inner-spin-button {
     transform: translateX(-2px);
@@ -1108,8 +1115,8 @@ input[type=number]::-webkit-inner-spin-button {
 #dark-mode .shortcut-line-right,
 #dark-mode .shortcut-line-left,
 
-#dark-mode #assignments-container > *:not(.assignment-container):not(#assignments-header),
-#dark-mode #assignments-container > #assignments-header > *:not(#icon-label-container),
+#dark-mode #assignments-container > :not(.assignment-container):not(#assignments-header),
+#dark-mode #assignments-container > #assignments-header > :not(#icon-label-container),
 
 #dark-mode #assignments-header #icon-label-container img ~ div,
 
@@ -1119,9 +1126,11 @@ input[type=number]::-webkit-inner-spin-button {
 #dark-mode #assignments-header #icon-label-container img ~ div > .info-button,
 
 /* Need these annoying rules instead of just doing ".assignment-container.invert-text-color .assignment-header *" because it messes up positioning */
-.assignment-container.invert-text-color .assignment-header > *:not(.right-side-of-header),
-.assignment-container.invert-text-color .assignment-header > .right-side-of-header > *:not(.align-to-status-message-container),
-.assignment-container.invert-text-color .assignment-header > .right-side-of-header > .align-to-status-message-container > *:not(.tags),
+.assignment-container.invert-text-color .assignment-header > :not(.right-side-of-header):not(.button),
+.assignment-container.invert-text-color .assignment-header > .button > *,
+.assignment-container.invert-text-color .assignment-header > .right-side-of-header > :not(.align-to-status-message-container),
+.assignment-container.invert-text-color .assignment-header > .right-side-of-header > .align-to-status-message-container > :not(.tags),
+
 #dark-mode .tags,
 
 /* Undo filter already applied by #dark-mode .assignment-footer */
@@ -1143,9 +1152,9 @@ html:not(#dark-mode) .assignment-container.invert-text-color .advanced-buttons,
     --filter-invert: 0;
 }
 #dark-mode #overlay {
-    filter: brightness(0.85);
+    filter: brightness(0.8);
     background-color: rgba(0,0,0,0.55);
 }
 #dark-mode body {
-    background: radial-gradient(circle, rgb(10,10,10) 0, rgb(58,58,58) 100%);
+    --body-background: radial-gradient(circle, rgb(10,10,10) 0, rgb(58,58,58) 100%);
 }
